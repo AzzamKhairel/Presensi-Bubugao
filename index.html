@@ -5,15 +5,29 @@
   <title>Presensi Bubugao x BTN</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    
     body { 
       font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-      background: #4a5568; 
+      /* === 1. SETTING BACKGROUND GAMBAR === */
+      background: url('background.png') no-repeat center center fixed; 
+      background-size: cover;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 15px;
+      position: relative;
     }
+    
+    /* Efek Lapisan Gelap di atas background agar kotak presensi tetap terlihat kontras/jelas */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5); /* 0.5 artinya kegelapan 50%. Ubah sesuai selera */
+      z-index: 1;
+    }
+    
     .container { 
       width: 100%;
       max-width: 480px; 
@@ -22,10 +36,29 @@
       box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
       text-align: center;
       overflow: hidden; 
+      position: relative;
+      z-index: 2; /* Menaikkan posisi kotak di atas lapisan gelap background */
     }
+    
+    /* === 2. LAYOUT BANNER === */
+    .banner-box {
+      width: 100%;
+      height: auto;
+      display: block;
+      background-color: #f8f9fa;
+    }
+    .banner-box img {
+      width: 100%;
+      height: auto;
+      max-height: 140px; /* Batasi tinggi maksimal banner agar tidak terlalu besar */
+      object-fit: cover; /* Memotong gambar secara proporsional jika terlalu panjang */
+      display: block;
+    }
+    
     .content-area { padding: 25px; }
     h1 { color: #004b87; font-size: 24px; font-weight: 800; margin-bottom: 5px; }
     .subtitle { color: #7f8c8d; font-size: 13px; font-weight: 700; margin-bottom: 20px; }
+    
     .camera-container {
       width: 100%; max-width: 240px; height: 180px;
       margin: 0 auto 20px auto; border-radius: 12px;
@@ -33,11 +66,13 @@
       overflow: hidden;
     }
     video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    
     input { 
       width: 100%; padding: 15px; font-size: 22px; font-weight: bold;
       color: #2c3e50; border: 3px solid #bdc3c7; border-radius: 12px; text-align: center; 
     }
     input:focus { border-color: #004b87; outline: none; box-shadow: 0 0 15px rgba(0,75,135,0.4); }
+    
     #statusBox { 
       margin-top: 20px; padding: 20px 15px; border-radius: 12px; 
       font-size: 20px; font-weight: bold; min-height: 80px;
@@ -51,9 +86,14 @@
 </head>
 <body>
   <div class="container">
+    
+    <div class="banner-box">
+      <img src="banner.png" alt="Banner Presensi">
+    </div>
+    
     <div class="content-area">
       <h1>PRESENSI BUBUGAO X BTN</h1>
-      <div class="subtitle">SISTEM LUAR IFRAME GOOGLE • AKTIF</div>
+      <div class="subtitle">SISTEM PREMIUM VERCEL • ONLINE</div>
       
       <div class="camera-container">
         <video id="webcam" autoplay playsinline muted></video>
@@ -69,7 +109,7 @@
   </div>
 
   <script>
-    // === WAJIB GANTI DENGAN URL WEB APP BARU ANDA ===
+    // === MASUKKAN URL GOOGLE APPS SCRIPT (doPost) ANDA DI SINI ===
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyIXZ6M_UqmqgqQvodOaRA4SgfnpuPdOU9j9tzmfYiDbp7PA1OkNA5kGbbcQg_prLWw_A/exec";
 
     const input = document.getElementById('barcodeInput');
@@ -77,11 +117,8 @@
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('captureCanvas');
 
-    // Menyalakan kamera langsung (Bebas dari Sandbox Google iframe)
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      .then(stream => {
-        video.srcObject = stream;
-      })
+      .then(stream => { video.srcObject = stream; })
       .catch(err => {
         statusBox.className = 'status-error';
         statusBox.innerHTML = '<span>⚠️ Gagal Akses Kamera: ' + err.message + '</span>';
@@ -99,7 +136,6 @@
         statusBox.className = 'status-loading';
         statusBox.innerHTML = '<span>⏳ Memproses & Mengambil Foto...</span>';
 
-        // Ambil Snapshot Gambar
         let photoDataUrl = "";
         try {
           const context = canvas.getContext('2d');
@@ -111,15 +147,13 @@
 
         input.value = '';
 
-        // Tembak data langsung ke Google Apps Script via Fetch API (Cross-Origin Aman)
         fetch(WEB_APP_URL, {
           method: 'POST',
-          mode: 'no-cors', // Solusi jitu bypass CORS lintas domain
+          mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify({ barcode: barcodeValue, image: photoDataUrl })
         })
         .then(() => {
-          // Karena menggunakan 'no-cors', kita langsung set sukses setelah data terkirim
           statusBox.className = 'status-success';
           statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
           setTimeout(() => {
