@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presensi Bubugao x BTN</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+      background: #4a5568; 
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+    }
+    .container { 
+      width: 100%;
+      max-width: 480px; 
+      background: #ffffff; 
+      border-radius: 16px; 
+      box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
+      text-align: center;
+      overflow: hidden; 
+    }
+    .content-area { padding: 25px; }
+    h1 { color: #004b87; font-size: 24px; font-weight: 800; margin-bottom: 5px; }
+    .subtitle { color: #7f8c8d; font-size: 13px; font-weight: 700; margin-bottom: 20px; }
+    .camera-container {
+      width: 100%; max-width: 240px; height: 180px;
+      margin: 0 auto 20px auto; border-radius: 12px;
+      border: 3px solid #bdc3c7; background-color: #2c3e50;
+      overflow: hidden;
+    }
+    video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    input { 
+      width: 100%; padding: 15px; font-size: 22px; font-weight: bold;
+      color: #2c3e50; border: 3px solid #bdc3c7; border-radius: 12px; text-align: center; 
+    }
+    input:focus { border-color: #004b87; outline: none; box-shadow: 0 0 15px rgba(0,75,135,0.4); }
+    #statusBox { 
+      margin-top: 20px; padding: 20px 15px; border-radius: 12px; 
+      font-size: 20px; font-weight: bold; min-height: 80px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .status-ready { background-color: #f1f2f6; color: #57606f; border: 2px solid #ced6e0; }
+    .status-loading { background-color: #fef9e7; color: #d4ac0d; border: 2px solid #f9e79f; }
+    .status-success { background-color: #e8f8f5; color: #117a65; border: 2px solid #a3e4d7; }
+    .status-error { background-color: #fadbd8; color: #78281f; border: 2px solid #f5b7b1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="content-area">
+      <h1>PRESENSI BUBUGAO X BTN</h1>
+      <div class="subtitle">SISTEM LUAR IFRAME GOOGLE • AKTIF</div>
+      
+      <div class="camera-container">
+        <video id="webcam" autoplay playsinline muted></video>
+      </div>
+      <canvas id="captureCanvas" style="display:none;"></canvas>
+      
+      <input type="text" id="barcodeInput" autofocus placeholder="SILAKAN SCAN KARTU" autocomplete="off">
+      
+      <div id="statusBox" class="status-ready">
+        <span>📷 Kamera Siap, Silakan Scan...</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === WAJIB GANTI DENGAN URL WEB APP BARU ANDA ===
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyIXZ6M_UqmqgqQvodOaRA4SgfnpuPdOU9j9tzmfYiDbp7PA1OkNA5kGbbcQg_prLWw_A/exec";
+
+    const input = document.getElementById('barcodeInput');
+    const statusBox = document.getElementById('statusBox');
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('captureCanvas');
+
+    // Menyalakan kamera langsung (Bebas dari Sandbox Google iframe)
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(stream => {
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        statusBox.className = 'status-error';
+        statusBox.innerHTML = '<span>⚠️ Gagal Akses Kamera: ' + err.message + '</span>';
+      });
+
+    document.addEventListener('click', () => input.focus());
+    input.addEventListener('blur', () => setTimeout(() => input.focus(), 10));
+
+    input.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const barcodeValue = input.value.trim();
+        if (barcodeValue === "") return;
+
+        statusBox.className = 'status-loading';
+        statusBox.innerHTML = '<span>⏳ Memproses & Mengambil Foto...</span>';
+
+        // Ambil Snapshot Gambar
+        let photoDataUrl = "";
+        try {
+          const context = canvas.getContext('2d');
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 480;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        } catch (err) { console.error(err); }
+
+        input.value = '';
+
+        // Tembak data langsung ke Google Apps Script via Fetch API (Cross-Origin Aman)
+        fetch(WEB_APP_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Solusi jitu bypass CORS lintas domain
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ barcode: barcodeValue, image: photoDataUrl })
+        })
+        .then(() => {
+          // Karena menggunakan 'no-cors', kita langsung set sukses setelah data terkirim
+          statusBox.className = 'status-success';
+          statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
+          setTimeout(() => {
+            statusBox.className = 'status-ready';
+            statusBox.innerHTML = '<span>📷 Kamera Siap, Silakan Scan...</span>';
+          }, 2000);
+          input.focus();
+        })
+        .catch(error => {
+          statusBox.className = 'status-error';
+          statusBox.innerHTML = '<span>❌ GAGAL: ' + error.message + '</span>';
+          input.focus();
+        });
+      }
+    });
+  </script>
+</body>
+</html>
