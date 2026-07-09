@@ -1,174 +1,68 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Presensi Bubugao x BTN</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    
-    body { 
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-      /* === 1. SETTING BACKGROUND GAMBAR === */
-      background: url('background.png') no-repeat center center fixed; 
-      background-size: cover;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 15px;
-      position: relative;
-    }
-    
-    /* Efek Lapisan Gelap di atas background agar kotak presensi tetap terlihat kontras/jelas */
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.5); /* 0.5 artinya kegelapan 50%. Ubah sesuai selera */
-      z-index: 1;
-    }
-    
-    .container { 
-      width: 100%;
-      max-width: 480px; 
-      background: #ffffff; 
-      border-radius: 16px; 
-      box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
-      text-align: center;
-      overflow: hidden; 
-      position: relative;
-      z-index: 2; /* Menaikkan posisi kotak di atas lapisan gelap background */
-    }
-    
-    /* === 2. LAYOUT BANNER === */
-    .banner-box {
-      width: 100%;
-      height: auto;
-      display: block;
-      background-color: #f8f9fa;
-    }
-    .banner-box img {
-      width: 100%;
-      height: auto;
-      max-height: 140px; /* Batasi tinggi maksimal banner agar tidak terlalu besar */
-      object-fit: cover; /* Memotong gambar secara proporsional jika terlalu panjang */
-      display: block;
-    }
-    
-    .content-area { padding: 25px; }
-    h1 { color: #004b87; font-size: 24px; font-weight: 800; margin-bottom: 5px; }
-    .subtitle { color: #7f8c8d; font-size: 13px; font-weight: 700; margin-bottom: 20px; }
-    
-    .camera-container {
-      width: 100%; max-width: 240px; height: 180px;
-      margin: 0 auto 20px auto; border-radius: 12px;
-      border: 3px solid #bdc3c7; background-color: #2c3e50;
-      overflow: hidden;
-    }
-    video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-    
-    input { 
-      width: 100%; padding: 15px; font-size: 22px; font-weight: bold;
-      color: #2c3e50; border: 3px solid #bdc3c7; border-radius: 12px; text-align: center; 
-    }
-    input:focus { border-color: #004b87; outline: none; box-shadow: 0 0 15px rgba(0,75,135,0.4); }
-    
-    #statusBox { 
-      margin-top: 20px; padding: 20px 15px; border-radius: 12px; 
-      font-size: 20px; font-weight: bold; min-height: 80px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .status-ready { background-color: #f1f2f6; color: #57606f; border: 2px solid #ced6e0; }
-    .status-loading { background-color: #fef9e7; color: #d4ac0d; border: 2px solid #f9e79f; }
-    .status-success { background-color: #e8f8f5; color: #117a65; border: 2px solid #a3e4d7; }
-    .status-error { background-color: #fadbd8; color: #78281f; border: 2px solid #f5b7b1; }
-  </style>
+  <title>Web Presensi Realtime</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style> body { background-color: #f3f4f6; } </style>
 </head>
-<body>
-  <div class="container">
-    
-    <div class="banner-box">
-      <img src="banner.png" alt="Banner Presensi">
+<body class="p-4 md:p-8">
+
+  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+    <div class="bg-emerald-800 p-6 text-white">
+      <h1 class="text-2xl font-bold tracking-wide">👥 DATA PRESENSI KEHADIRAN</h1>
+      <p class="text-emerald-200 text-sm mt-1">Sumber: Sheet KEHADIRAN (Kolom A - C)</p>
     </div>
-    
-    <div class="content-area">
-      <h1>PRESENSI BU BU GAO</h1>
-      <div class="subtitle">Presented by BTN KC Agung Sedayu • ONLINE</div>
-      
-      <div class="camera-container">
-        <video id="webcam" autoplay playsinline muted></video>
-      </div>
-      <canvas id="captureCanvas" style="display:none;"></canvas>
-      
-      <input type="text" id="barcodeInput" autofocus placeholder="SILAKAN SCAN KARTU" autocomplete="off">
-      
-      <div id="statusBox" class="status-ready">
-        <span>📷 Kamera Siap, Silakan Scan...</span>
-      </div>
+
+    <div class="overflow-x-auto p-6">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr id="tableHeader" class="border-b-2 border-gray-200 text-gray-600 text-sm font-bold uppercase tracking-wider"></tr>
+        </thead>
+        <tbody id="tableBody" class="text-gray-700 text-sm divide-y divide-gray-100">
+          <tr>
+            <td class="text-center py-10 text-gray-400 font-medium animate-pulse">⏳ Menarik data Kehadiran...</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
   <script>
-    // === MASUKKAN URL GOOGLE APPS SCRIPT (doPost) ANDA DI SINI ===
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyDgF_hL1r-N7wEsYg40Lv9jAkc9rNPG4id2hCgNCovvp1e35Sl6XrhsRp258GtcTo/exec";
+    // URL GAS Anda yang sudah terpasang parameter action=presensi
+    const API_URL = "https://script.google.com/macros/s/AKfycbx2PBgvgwQ21LuIoOpx8VQcEi6GsycKi2JCvx0CBIDwqRqJK80xuY5eq_sdoAjWqDLk2Q/exec?action=presensi"; 
 
-    const input = document.getElementById('barcodeInput');
-    const statusBox = document.getElementById('statusBox');
-    const video = document.getElementById('webcam');
-    const canvas = document.getElementById('captureCanvas');
+    async function ambilData() {
+      try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        
+        const headers = data[0]; 
+        const rows = data.slice(1);  
+        
+        // Render Judul Kolom (Header A-C)
+        document.getElementById('tableHeader').innerHTML = headers.map(h => `<th class="py-3 px-4">${h}</th>`).join('');
+        
+        // Render Isi Data Kehadiran
+        const tbody = document.getElementById('tableBody');
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="3" class="text-center py-10 text-gray-400">Belum ada data presensi hari ini.</td></tr>`;
+          return;
+        }
+        
+        tbody.innerHTML = rows.map(row => {
+          return `<tr class="hover:bg-gray-50 border-b border-gray-100">${row.map(cell => `<td class="py-3 px-4">${cell}</td>`).join('')}</tr>`;
+        }).join('');
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      .then(stream => { video.srcObject = stream; })
-      .catch(err => {
-        statusBox.className = 'status-error';
-        statusBox.innerHTML = '<span>⚠️ Gagal Akses Kamera: ' + err.message + '</span>';
-      });
-
-    document.addEventListener('click', () => input.focus());
-    input.addEventListener('blur', () => setTimeout(() => input.focus(), 10));
-
-    input.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const barcodeValue = input.value.trim();
-        if (barcodeValue === "") return;
-
-        statusBox.className = 'status-loading';
-        statusBox.innerHTML = '<span>⏳ Memproses & Mengambil Foto...</span>';
-
-        let photoDataUrl = "";
-        try {
-          const context = canvas.getContext('2d');
-          canvas.width = video.videoWidth || 640;
-          canvas.height = video.videoHeight || 480;
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
-        } catch (err) { console.error(err); }
-
-        input.value = '';
-
-        fetch(WEB_APP_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ barcode: barcodeValue, image: photoDataUrl })
-        })
-        .then(() => {
-          statusBox.className = 'status-success';
-          statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
-          setTimeout(() => {
-            statusBox.className = 'status-ready';
-            statusBox.innerHTML = '<span>📷 Kamera Siap, Silakan Scan...</span>';
-          }, 2000);
-          input.focus();
-        })
-        .catch(error => {
-          statusBox.className = 'status-error';
-          statusBox.innerHTML = '<span>❌ GAGAL: ' + error.message + '</span>';
-          input.focus();
-        });
+      } catch (error) {
+        document.getElementById('tableBody').innerHTML = `<tr><td colspan="3" class="text-center py-10 text-red-500 font-bold">❌ Gagal memuat data: ${error.message}</td></tr>`;
       }
-    });
+    }
+
+    // Jalankan penarikan data
+    ambilData();
   </script>
 </body>
 </html>
