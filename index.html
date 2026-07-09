@@ -1,112 +1,235 @@
-// ==========================================
-// BACKEND: MENERIMA SCAN BARCODE & FOTO (LOG_HISTORY A-D)
-// ==========================================
-function doPost(e) {
-  try {
-    var data = JSON.parse(e.postData.contents);
-    var barcode = data.barcode;
-    var base64Image = data.image;
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Presensi Bubugao x BTN</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheetName = "LOG_HISTORY";
-    var sheet = ss.getSheetByName(sheetName);
-    
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(["Waktu", "Data Barcode", "Keterangan", "Foto Bukti"]);
-      sheet.getRange("A1:D1").setFontWeight("bold");
+    body { 
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+      background: url('background.png') no-repeat center center fixed; 
+      background-size: cover;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 30px 15px;
+      position: relative;
+      gap: 25px;
     }
     
-    var timestamp = Utilities.formatDate(new Date(), "GMT+7", "dd/MM/yyyy HH:mm:ss");
-    var keterangan = "Scan Otomatis via VSC BS-8669";
-    var linkFoto = "Tidak ada foto";
-    
-    if (base64Image && base64Image.indexOf("data:image") > -1) {
-      var folderId = "1JvaaXyTYEQ0hFPCQ5gxRga7Wnmx4N8bK"; 
-      var folder = DriveApp.getFolderById(folderId);
-      
-      var splitData = base64Image.split(",");
-      var contentType = splitData[0].match(/:(.*?);/)[1];
-      var rawBytes = Utilities.base64Decode(splitData[1]);
-      
-      var namaFile = "Scan_" + barcode + "_" + timestamp.replace(/[\/:\s]/g, "-") + ".jpg";
-      var blob = Utilities.newBlob(rawBytes, contentType, namaFile);
-      
-      var fileBaru = folder.createFile(blob);
-      linkFoto = fileBaru.getUrl(); 
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1;
     }
     
-    sheet.appendRow([timestamp, barcode, keterangan, linkFoto]);
+    .container, .table-container { 
+      width: 100%;
+      max-width: 480px; 
+      background: #ffffff; 
+      border-radius: 16px; 
+      box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
+      position: relative;
+      z-index: 2;
+      overflow: hidden;
+    }
+
+    .container { text-align: center; }
     
-    return ContentService.createTextOutput(JSON.stringify({status: "success"}))
-                         .setMimeType(ContentService.MimeType.JSON);
-                         
-  } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({status: "error", message: err.toString()}))
-                         .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-// ==========================================
-// BACKEND: SISTEM ROUTING UNTUK AMBIL DATA (GET)
-// ==========================================
-function doGet(e) {
-  var action = e && e.parameter && e.parameter.action;
-
-  // Jalur Web Laporan (LOG_HISTORY Kolom F-J)
-  if (action === "laporan") {
-    return ambilDataLaporan();
-  }
-  
-  // Jalur Web Presensi (KEHADIRAN Kolom A-C)
-  if (action === "presensi") {
-    return ambilDataPresensi();
-  }
-
-  return ContentService.createTextOutput("API Aktif. Gunakan parameter ?action=laporan atau ?action=presensi");
-}
-
-function ambilDataLaporan() {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("LOG_HISTORY"); 
-    if (!sheet) return buatResponJSON({ error: "Sheet LOG_HISTORY tidak ditemukan" });
+    .banner-box {
+      width: 100%;
+      height: auto;
+      display: block;
+      background-color: #f8f9fa;
+    }
+    .banner-box img {
+      width: 100%;
+      height: auto;
+      max-height: 140px;
+      object-fit: cover;
+      display: block;
+    }
     
-    var values = sheet.getDataRange().getDisplayValues();
+    .content-area { padding: 25px; }
+    h1 { color: #004b87; font-size: 24px; font-weight: 800; margin-bottom: 5px; }
+    .subtitle { color: #7f8c8d; font-size: 13px; font-weight: 700; margin-bottom: 20px; }
     
-    var dataPilihan = values.map(function(row) {
-      return [row[5] || "", row[6] || "", row[7] || "", row[8] || "", row[9] || ""];
-    }).filter(function(row) {
-      return row.some(function(cell) { return cell !== ""; });
+    .camera-container {
+      width: 100%; max-width: 240px; height: 180px;
+      margin: 0 auto 20px auto; border-radius: 12px;
+      border: 3px solid #bdc3c7; background-color: #2c3e50;
+      overflow: hidden;
+    }
+    video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    
+    input { 
+      width: 100%; padding: 15px; font-size: 22px; font-weight: bold;
+      color: #2c3e50; border: 3px solid #bdc3c7; border-radius: 12px; text-align: center; 
+    }
+    input:focus { border-color: #004b87; outline: none; box-shadow: 0 0 15px rgba(0,75,135,0.4); }
+    
+    #statusBox { 
+      margin-top: 20px; padding: 20px 15px; border-radius: 12px; 
+      font-size: 20px; font-weight: bold; min-height: 80px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .status-ready { background-color: #f1f2f6; color: #57606f; border: 2px solid #ced6e0; }
+    .status-loading { background-color: #fef9e7; color: #d4ac0d; border: 2px solid #f9e79f; }
+    .status-success { background-color: #e8f8f5; color: #117a65; border: 2px solid #a3e4d7; }
+    .status-error { background-color: #fadbd8; color: #78281f; border: 2px solid #f5b7b1; }
+
+    /* === CSS TAMBAHAN UNTUK TABEL LIVE PRESENSI === */
+    .table-container { padding: 20px; }
+    .table-title { color: #004b87; font-size: 15px; font-weight: bold; margin-bottom: 10px; text-align: left; border-left: 4px solid #004b87; padding-left: 8px; }
+    .table-wrapper { overflow-x: auto; width: 100%; max-height: 250px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+    th { background-color: #f1f2f6; color: #57606f; padding: 10px; font-weight: bold; border-bottom: 2px solid #ced6e0; position: sticky; top: 0; }
+    td { padding: 10px; border-bottom: 1px solid #f1f2f6; color: #2c3e50; }
+    tr:hover { background-color: #f9f9f9; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="banner-box">
+      <img src="banner.png" alt="Banner Presensi">
+    </div>
+    <div class="content-area">
+      <h1>PRESENSI BU BU GAO</h1>
+      <div class="subtitle">Presented by BTN KC Agung Sedayu • ONLINE</div>
+      
+      <div class="camera-container">
+        <video id="webcam" autoplay playsinline muted></video>
+      </div>
+      <canvas id="captureCanvas" style="display:none;"></canvas>
+      
+      <input type="text" id="barcodeInput" autofocus placeholder="SILAKAN SCAN KARTU" autocomplete="off">
+      
+      <div id="statusBox" class="status-ready">
+        <span>📷 Kamera Siap, Silakan Scan...</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-container">
+    <div class="table-title">🔄 Data Real-Time Kehadiran (Kolom A - C)</div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr id="tableHeader">
+            <th style="padding:10px; color:#7f8c8d;">Memuat nama kolom...</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr>
+            <td colspan="3" style="text-align:center; color:#7f8c8d; padding:20px;">⏳ Mengambil data pelengkap...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2PBgvgwQ21LuIoOpx8VQcEi6GsycKi2JCvx0CBIDwqRqJK80xuY5eq_sdoAjWqDLk2Q/exec";
+    const GET_DATA_URL = WEB_APP_URL + "?action=presensi";
+
+    const input = document.getElementById('barcodeInput');
+    const statusBox = document.getElementById('statusBox');
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('captureCanvas');
+
+    // Aktifkan Kamera
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(stream => { video.srcObject = stream; })
+      .catch(err => {
+        statusBox.className = 'status-error';
+        statusBox.innerHTML = '<span>⚠️ Gagal Akses Kamera: ' + err.message + '</span>';
+      });
+
+    document.addEventListener('click', () => input.focus());
+    input.addEventListener('blur', () => setTimeout(() => input.focus(), 10));
+
+    // Ambil Data Pendukung Kehadiran (GET)
+    async function muatTabelKehadiran() {
+      try {
+        const response = await fetch(GET_DATA_URL);
+        const data = await response.json();
+        if (data.error) return;
+        
+        const headers = data[0];
+        const rows = data.slice(1);
+        
+        document.getElementById('tableHeader').innerHTML = headers.map(h => `<th>${h}</th>`).join('');
+        
+        const tbody = document.getElementById('tableBody');
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="${headers.length}" style="text-align:center; color:#aaa; padding:15px;">Belum ada data presensi.</td></tr>`;
+          return;
+        }
+        
+        tbody.innerHTML = rows.map(row => {
+          return `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
+        }).join('');
+      } catch (e) {
+        console.log("Gagal memuat tabel pelengkap: ", e);
+      }
+    }
+
+    // Jalankan scan kartu (POST)
+    input.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const barcodeValue = input.value.trim();
+        if (barcodeValue === "") return;
+
+        statusBox.className = 'status-loading';
+        statusBox.innerHTML = '<span>⏳ Memproses & Mengambil Foto...</span>';
+
+        let photoDataUrl = "";
+        try {
+          const context = canvas.getContext('2d');
+          canvas.width = video.videoWidth || 640;
+          canvas.height = video.videoHeight || 480;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        } catch (err) { console.error(err); }
+
+        input.value = '';
+
+        fetch(WEB_APP_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({ barcode: barcodeValue, image: photoDataUrl })
+        })
+        .then(() => {
+          statusBox.className = 'status-success';
+          statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
+          
+          // 💡 FITUR REALTIME: Begitu sukses absen, tabel di bawah langsung auto-refresh menarik data terbaru
+          muatTabelKehadiran();
+
+          setTimeout(() => {
+            statusBox.className = 'status-ready';
+            statusBox.innerHTML = '<span>📷 Kamera Siap, Silakan Scan...</span>';
+          }, 2000);
+          input.focus();
+        })
+        .catch(error => {
+          statusBox.className = 'status-error';
+          statusBox.innerHTML = '<span>❌ GAGAL: ' + error.message + '</span>';
+          input.focus();
+        });
+      }
     });
-    
-    return buatResponJSON(dataPilihan);
-  } catch (err) {
-    return buatResponJSON({ error: err.toString() });
-  }
-}
 
-function ambilDataPresensi() {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("KEHADIRAN"); 
-    if (!sheet) return buatResponJSON({ error: "Sheet KEHADIRAN tidak ditemukan" });
-    
-    var values = sheet.getDataRange().getDisplayValues();
-    
-    var dataPilihan = values.map(function(row) {
-      return [row[0] || "", row[1] || "", row[2] || ""];
-    }).filter(function(row) {
-      return row.some(function(cell) { return cell !== ""; });
-    });
-    
-    return buatResponJSON(dataPilihan);
-  } catch (err) {
-    return buatResponJSON({ error: err.toString() });
-  }
-}
-
-function buatResponJSON(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-                       .setMimeType(ContentService.MimeType.JSON);
-}
+    // Jalankan penarikan data tabel saat halaman pertama dibuka
+    muatTabelKehadiran();
+  </script>
+</body>
+</html>
