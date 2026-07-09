@@ -1,68 +1,112 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web Presensi Realtime</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <style> body { background-color: #f3f4f6; } </style>
-</head>
-<body class="p-4 md:p-8">
-
-  <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-    <div class="bg-emerald-800 p-6 text-white">
-      <h1 class="text-2xl font-bold tracking-wide">👥 DATA PRESENSI KEHADIRAN</h1>
-      <p class="text-emerald-200 text-sm mt-1">Sumber: Sheet KEHADIRAN (Kolom A - C)</p>
-    </div>
-
-    <div class="overflow-x-auto p-6">
-      <table class="w-full text-left border-collapse">
-        <thead>
-          <tr id="tableHeader" class="border-b-2 border-gray-200 text-gray-600 text-sm font-bold uppercase tracking-wider"></tr>
-        </thead>
-        <tbody id="tableBody" class="text-gray-700 text-sm divide-y divide-gray-100">
-          <tr>
-            <td class="text-center py-10 text-gray-400 font-medium animate-pulse">⏳ Menarik data Kehadiran...</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <script>
-    // URL GAS Anda yang sudah terpasang parameter action=presensi
-    const API_URL = "https://script.google.com/macros/s/AKfycbx2PBgvgwQ21LuIoOpx8VQcEi6GsycKi2JCvx0CBIDwqRqJK80xuY5eq_sdoAjWqDLk2Q/exec?action=presensi"; 
-
-    async function ambilData() {
-      try {
-        const response = await fetch(API_URL);
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
-        
-        const headers = data[0]; 
-        const rows = data.slice(1);  
-        
-        // Render Judul Kolom (Header A-C)
-        document.getElementById('tableHeader').innerHTML = headers.map(h => `<th class="py-3 px-4">${h}</th>`).join('');
-        
-        // Render Isi Data Kehadiran
-        const tbody = document.getElementById('tableBody');
-        if (rows.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="3" class="text-center py-10 text-gray-400">Belum ada data presensi hari ini.</td></tr>`;
-          return;
-        }
-        
-        tbody.innerHTML = rows.map(row => {
-          return `<tr class="hover:bg-gray-50 border-b border-gray-100">${row.map(cell => `<td class="py-3 px-4">${cell}</td>`).join('')}</tr>`;
-        }).join('');
-
-      } catch (error) {
-        document.getElementById('tableBody').innerHTML = `<tr><td colspan="3" class="text-center py-10 text-red-500 font-bold">❌ Gagal memuat data: ${error.message}</td></tr>`;
-      }
+// ==========================================
+// BACKEND: MENERIMA SCAN BARCODE & FOTO (LOG_HISTORY A-D)
+// ==========================================
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var barcode = data.barcode;
+    var base64Image = data.image;
+    
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheetName = "LOG_HISTORY";
+    var sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      sheet.appendRow(["Waktu", "Data Barcode", "Keterangan", "Foto Bukti"]);
+      sheet.getRange("A1:D1").setFontWeight("bold");
     }
+    
+    var timestamp = Utilities.formatDate(new Date(), "GMT+7", "dd/MM/yyyy HH:mm:ss");
+    var keterangan = "Scan Otomatis via VSC BS-8669";
+    var linkFoto = "Tidak ada foto";
+    
+    if (base64Image && base64Image.indexOf("data:image") > -1) {
+      var folderId = "1JvaaXyTYEQ0hFPCQ5gxRga7Wnmx4N8bK"; 
+      var folder = DriveApp.getFolderById(folderId);
+      
+      var splitData = base64Image.split(",");
+      var contentType = splitData[0].match(/:(.*?);/)[1];
+      var rawBytes = Utilities.base64Decode(splitData[1]);
+      
+      var namaFile = "Scan_" + barcode + "_" + timestamp.replace(/[\/:\s]/g, "-") + ".jpg";
+      var blob = Utilities.newBlob(rawBytes, contentType, namaFile);
+      
+      var fileBaru = folder.createFile(blob);
+      linkFoto = fileBaru.getUrl(); 
+    }
+    
+    sheet.appendRow([timestamp, barcode, keterangan, linkFoto]);
+    
+    return ContentService.createTextOutput(JSON.stringify({status: "success"}))
+                         .setMimeType(ContentService.MimeType.JSON);
+                         
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({status: "error", message: err.toString()}))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
-    // Jalankan penarikan data
-    ambilData();
-  </script>
-</body>
-</html>
+// ==========================================
+// BACKEND: SISTEM ROUTING UNTUK AMBIL DATA (GET)
+// ==========================================
+function doGet(e) {
+  var action = e && e.parameter && e.parameter.action;
+
+  // Jalur Web Laporan (LOG_HISTORY Kolom F-J)
+  if (action === "laporan") {
+    return ambilDataLaporan();
+  }
+  
+  // Jalur Web Presensi (KEHADIRAN Kolom A-C)
+  if (action === "presensi") {
+    return ambilDataPresensi();
+  }
+
+  return ContentService.createTextOutput("API Aktif. Gunakan parameter ?action=laporan atau ?action=presensi");
+}
+
+function ambilDataLaporan() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName("LOG_HISTORY"); 
+    if (!sheet) return buatResponJSON({ error: "Sheet LOG_HISTORY tidak ditemukan" });
+    
+    var values = sheet.getDataRange().getDisplayValues();
+    
+    var dataPilihan = values.map(function(row) {
+      return [row[5] || "", row[6] || "", row[7] || "", row[8] || "", row[9] || ""];
+    }).filter(function(row) {
+      return row.some(function(cell) { return cell !== ""; });
+    });
+    
+    return buatResponJSON(dataPilihan);
+  } catch (err) {
+    return buatResponJSON({ error: err.toString() });
+  }
+}
+
+function ambilDataPresensi() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName("KEHADIRAN"); 
+    if (!sheet) return buatResponJSON({ error: "Sheet KEHADIRAN tidak ditemukan" });
+    
+    var values = sheet.getDataRange().getDisplayValues();
+    
+    var dataPilihan = values.map(function(row) {
+      return [row[0] || "", row[1] || "", row[2] || ""];
+    }).filter(function(row) {
+      return row.some(function(cell) { return cell !== ""; });
+    });
+    
+    return buatResponJSON(dataPilihan);
+  } catch (err) {
+    return buatResponJSON({ error: err.toString() });
+  }
+}
+
+function buatResponJSON(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+                       .setMimeType(ContentService.MimeType.JSON);
+}
