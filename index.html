@@ -30,7 +30,7 @@
     
     .container, .table-container { 
       width: 100%;
-      max-width: 520px; 
+      max-width: 560px; 
       background: #ffffff; 
       border-radius: 16px; 
       box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
@@ -83,7 +83,7 @@
     .status-success { background-color: #e8f8f5; color: #117a65; border: 2px solid #a3e4d7; }
     .status-error { background-color: #fadbd8; color: #78281f; border: 2px solid #f5b7b1; }
 
-    /* === CSS TAMBAHAN UNTUK TABEL LIVE PRESENSI === */
+    /* === TABEL LIVE PRESENSI === */
     .table-container { padding: 20px; }
     .table-title { color: #004b87; font-size: 15px; font-weight: bold; margin-bottom: 10px; text-align: left; border-left: 4px solid #004b87; padding-left: 8px; }
     .table-wrapper { overflow-x: auto; width: 100%; max-height: 250px; overflow-y: auto; }
@@ -126,7 +126,7 @@
   </div>
 
   <div class="table-container">
-    <div class="table-title">🔄 Data Real-Time Log History (Tanggal, Waktu, Barcode, Foto)</div>
+    <div class="table-title">🔄 Data Real-Time Log History (Nama Member, Tanggal, Waktu, Barcode, Foto)</div>
     <div class="table-wrapper">
       <table>
         <thead>
@@ -136,7 +136,7 @@
         </thead>
         <tbody id="tableBody">
           <tr>
-            <td colspan="4" style="text-align:center; color:#7f8c8d; padding:20px;">⏳ Mengambil data pelengkap...</td>
+            <td colspan="5" style="text-align:center; color:#7f8c8d; padding:20px;">⏳ Mengambil data pelengkap...</td>
           </tr>
         </tbody>
       </table>
@@ -144,8 +144,8 @@
   </div>
 
   <script>
-    // URL Web App Google Apps Script terbaru
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzdqBHUNutuuYhh1-e8r0UMBdcX9AyYfFL7SNnUViY0dUM8LtNCRVMM1_eeLvdi7kri/exec";
+    // URL Web App Google Apps Script Terbaru
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxSphNvKxnOoYfFZPE02Awxj5M_jg6WmkO6dV5ZQ5JeXYueuGMqdD9IDPUTwSTKnh1z/exec";
     const GET_DATA_URL = WEB_APP_URL + "?action=laporan";
 
     const input = document.getElementById('barcodeInput');
@@ -167,12 +167,14 @@
     // Ambil Data Log History (GET)
     async function muatTabelKehadiran() {
       try {
-        const response = await fetch(GET_DATA_URL);
+        // Anti-cache URL parameter
+        const response = await fetch(GET_DATA_URL + "&_t=" + Date.now());
         const data = await response.json();
         if (data.error) return;
         
         const headers = data[0];
-        const rows = data.slice(1);
+        // Balik urutan baris agar data presensi paling baru muncul di paling atas
+        const rows = data.slice(1).reverse();
         
         document.getElementById('tableHeader').innerHTML = headers.map(h => `<th>${h}</th>`).join('');
         
@@ -184,11 +186,12 @@
         
         tbody.innerHTML = rows.map(row => {
           return `<tr>${row.map(cell => {
-            // Jika isi sel adalah link URL (Foto Bukti), tampilkan sebagai link/tombol yang bisa diklik
-            if (cell && (cell.startsWith('http://') || cell.startsWith('https://'))) {
-              return `<td><a href="${cell}" target="_blank" class="btn-link">🖼️ Lihat Foto</a></td>`;
+            const cellStr = (cell !== undefined && cell !== null) ? cell.toString() : '';
+            // Jika isi sel adalah link URL (Foto Bukti), tampilkan tombol link
+            if (cellStr.startsWith('http://') || cellStr.startsWith('https://')) {
+              return `<td><a href="${cellStr}" target="_blank" class="btn-link">🖼️ Lihat Foto</a></td>`;
             }
-            return `<td>${cell}</td>`;
+            return `<td>${cellStr}</td>`;
           }).join('')}</tr>`;
         }).join('');
       } catch (e) {
@@ -227,8 +230,8 @@
           statusBox.className = 'status-success';
           statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
           
-          // Refresh tabel otomatis begitu scan berhasil
-          muatTabelKehadiran();
+          // Refresh tabel otomatis setelah scan berhasil (jeda 500ms agar data Google Sheet selesai diperbarui)
+          setTimeout(muatTabelKehadiran, 500);
 
           setTimeout(() => {
             statusBox.className = 'status-ready';
@@ -244,7 +247,7 @@
       }
     });
 
-    // Jalankan penarikan data tabel saat halaman pertama dibuka
+    // Jalankan penarikan data tabel saat halaman pertama kali dibuka
     muatTabelKehadiran();
   </script>
 </body>
