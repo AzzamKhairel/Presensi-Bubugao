@@ -145,7 +145,7 @@
 
   <script>
     // URL Web App Google Apps Script Terbaru
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxSphNvKxnOoYfFZPE02Awxj5M_jg6WmkO6dV5ZQ5JeXYueuGMqdD9IDPUTwSTKnh1z/exec";
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxl9_Srct9tyEmTHjd3PB2CyR1hO-mhdRt1ToNjipdVK5gvrtMABrtjy_8rECqcMGuS/exec";
     const GET_DATA_URL = WEB_APP_URL + "?action=laporan";
 
     const input = document.getElementById('barcodeInput');
@@ -167,13 +167,12 @@
     // Ambil Data Log History (GET)
     async function muatTabelKehadiran() {
       try {
-        // Anti-cache URL parameter
         const response = await fetch(GET_DATA_URL + "&_t=" + Date.now());
         const data = await response.json();
         if (data.error) return;
         
         const headers = data[0];
-        // Balik urutan baris agar data presensi paling baru muncul di paling atas
+        // Urutan dibalik agar log paling baru selalu berada di posisi paling atas
         const rows = data.slice(1).reverse();
         
         document.getElementById('tableHeader').innerHTML = headers.map(h => `<th>${h}</th>`).join('');
@@ -187,7 +186,6 @@
         tbody.innerHTML = rows.map(row => {
           return `<tr>${row.map(cell => {
             const cellStr = (cell !== undefined && cell !== null) ? cell.toString() : '';
-            // Jika isi sel adalah link URL (Foto Bukti), tampilkan tombol link
             if (cellStr.startsWith('http://') || cellStr.startsWith('https://')) {
               return `<td><a href="${cellStr}" target="_blank" class="btn-link">🖼️ Lihat Foto</a></td>`;
             }
@@ -230,7 +228,6 @@
           statusBox.className = 'status-success';
           statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
           
-          // Refresh tabel otomatis setelah scan berhasil (jeda 500ms agar data Google Sheet selesai diperbarui)
           setTimeout(muatTabelKehadiran, 500);
 
           setTimeout(() => {
@@ -247,7 +244,6 @@
       }
     });
 
-    // Jalankan penarikan data tabel saat halaman pertama kali dibuka
     muatTabelKehadiran();
   </script>
 </body>
