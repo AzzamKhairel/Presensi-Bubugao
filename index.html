@@ -30,7 +30,7 @@
     
     .container, .table-container { 
       width: 100%;
-      max-width: 480px; 
+      max-width: 540px; 
       background: #ffffff; 
       border-radius: 16px; 
       box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
@@ -83,14 +83,16 @@
     .status-success { background-color: #e8f8f5; color: #117a65; border: 2px solid #a3e4d7; }
     .status-error { background-color: #fadbd8; color: #78281f; border: 2px solid #f5b7b1; }
 
-    /* === CSS TABEL LIVE PRESENSI === */
+    /* === CSS TABEL LIVE LOG_HISTORY === */
     .table-container { padding: 20px; }
     .table-title { color: #004b87; font-size: 15px; font-weight: bold; margin-bottom: 10px; text-align: left; border-left: 4px solid #004b87; padding-left: 8px; }
-    .table-wrapper { overflow-x: auto; width: 100%; max-height: 250px; overflow-y: auto; }
-    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+    .table-wrapper { overflow-x: auto; width: 100%; max-height: 280px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; white-space: nowrap; }
     th { background-color: #f1f2f6; color: #57606f; padding: 10px; font-weight: bold; border-bottom: 2px solid #ced6e0; position: sticky; top: 0; }
     td { padding: 10px; border-bottom: 1px solid #f1f2f6; color: #2c3e50; }
     tr:hover { background-color: #f9f9f9; }
+    .btn-link { color: #004b87; font-weight: bold; text-decoration: none; }
+    .btn-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -117,7 +119,7 @@
   </div>
 
   <div class="table-container">
-    <div class="table-title">🔄 Data Real-Time Kehadiran (Kolom A - C)</div>
+    <div class="table-title">🔄 Data Real-Time LOG_HISTORY (Kolom A - E)</div>
     <div class="table-wrapper">
       <table>
         <thead>
@@ -127,7 +129,7 @@
         </thead>
         <tbody id="tableBody">
           <tr>
-            <td colspan="3" style="text-align:center; color:#7f8c8d; padding:20px;">⏳ Mengambil data pelengkap...</td>
+            <td colspan="5" style="text-align:center; color:#7f8c8d; padding:20px;">⏳ Mengambil data LOG_HISTORY...</td>
           </tr>
         </tbody>
       </table>
@@ -135,9 +137,9 @@
   </div>
 
   <script>
-    // URL Web App GAS Terbaru Anda
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyN8bX4nOXXFCxdemMW1m9mlBxEQvS4Ca05ASoOZzZoF6PTRPD7EVqeXIVUjiEDMgvP/exec";
-    const GET_DATA_URL = WEB_APP_URL + "?action=presensi";
+    // URL Web App Apps Script Terbaru
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxs-ko9oSP4xnCnaeP4dRue8PXHXeqxjYvVqyfHBWz9zy9iQHFKNFIDNsteLkwhWWQ/exec";
+    const GET_DATA_URL = WEB_APP_URL + "?action=laporan";
 
     const input = document.getElementById('barcodeInput');
     const statusBox = document.getElementById('statusBox');
@@ -155,33 +157,41 @@
     document.addEventListener('click', () => input.focus());
     input.addEventListener('blur', () => setTimeout(() => input.focus(), 10));
 
-    // Ambil Data Pendukung Kehadiran (GET)
+    // Ambil Data LOG_HISTORY (Kolom A - E)
     async function muatTabelKehadiran() {
       try {
         const response = await fetch(GET_DATA_URL);
         const data = await response.json();
-        if (data.error) return;
+        if (data.error || !Array.isArray(data)) return;
         
         const headers = data[0];
         const rows = data.slice(1);
         
+        // Render Header Tabel
         document.getElementById('tableHeader').innerHTML = headers.map(h => `<th>${h}</th>`).join('');
         
         const tbody = document.getElementById('tableBody');
         if (rows.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="${headers.length}" style="text-align:center; color:#aaa; padding:15px;">Belum ada data presensi.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="${headers.length}" style="text-align:center; color:#aaa; padding:15px;">Belum ada data presensi di LOG_HISTORY.</td></tr>`;
           return;
         }
         
+        // Render Isi Baris Data
         tbody.innerHTML = rows.map(row => {
-          return `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
+          return `<tr>${row.map(cell => {
+            // Otomatis ubah link Foto Drive (Kolom E) menjadi tombol link klik
+            if (typeof cell === 'string' && (cell.startsWith('http://') || cell.startsWith('https://'))) {
+              return `<td><a href="${cell}" target="_blank" class="btn-link">🖼️ Lihat Foto</a></td>`;
+            }
+            return `<td>${cell}</td>`;
+          }).join('')}</tr>`;
         }).join('');
       } catch (e) {
-        console.log("Gagal memuat tabel pelengkap: ", e);
+        console.log("Gagal memuat tabel LOG_HISTORY: ", e);
       }
     }
 
-    // Jalankan scan kartu (POST)
+    // Jalankan Scan Kartu (POST)
     input.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -212,7 +222,7 @@
           statusBox.className = 'status-success';
           statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
           
-          // Auto-refresh tabel kehadiran real-time
+          // Auto-refresh tabel real-time setelah scan sukses
           muatTabelKehadiran();
 
           setTimeout(() => {
@@ -229,7 +239,7 @@
       }
     });
 
-    // Jalankan penarikan data tabel saat halaman pertama dibuka
+    // Panggil penarikan data tabel saat halaman pertama kali dibuka
     muatTabelKehadiran();
   </script>
 </body>
