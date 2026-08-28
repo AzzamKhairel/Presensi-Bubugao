@@ -83,7 +83,7 @@
     .status-success { background-color: #e8f8f5; color: #117a65; border: 2px solid #a3e4d7; }
     .status-error { background-color: #fadbd8; color: #78281f; border: 2px solid #f5b7b1; }
 
-    /* === CSS TAMBAHAN UNTUK TABEL LIVE PRESENSI === */
+    /* === CSS TABEL LIVE LOG HISTORY === */
     .table-container { padding: 20px; }
     .table-title { color: #004b87; font-size: 15px; font-weight: bold; margin-bottom: 10px; text-align: left; border-left: 4px solid #004b87; padding-left: 8px; }
     .table-wrapper { overflow-x: auto; width: 100%; max-height: 280px; overflow-y: auto; }
@@ -144,8 +144,8 @@
   </div>
 
   <script>
-    // URL Web App Google Apps Script terbaru
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyCBwSu4NB38mgYCStyhtehv02DJ65knCbtTL_Yy10UIMGWGxLgf47trFQOSsSsQShh/exec";
+    // Link Apps Script Terbaru yang Sudah Terhubung
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw_VZWvXef2nhDtEoipGwygy8PQHNh46lPFwNpRQPzjGmhabtXogUtB00bOxvgID-BF/exec";
     const GET_DATA_URL = WEB_APP_URL + "?action=laporan";
 
     const input = document.getElementById('barcodeInput');
@@ -153,7 +153,7 @@
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('captureCanvas');
 
-    // Aktifkan Kamera
+    // Aktifkan Kamera Web
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       .then(stream => { video.srcObject = stream; })
       .catch(err => {
@@ -174,7 +174,7 @@
         const headers = data[0];
         const rows = data.slice(1);
         
-        // Membersihkan karakter petik tunggal (') di awal string jika terbawa dari format text Sheets
+        // Menghapus tanda petik tunggal (') di awal jika ada
         const cleanText = (val) => String(val || '').replace(/^'/, '');
         
         document.getElementById('tableHeader').innerHTML = headers.map(h => `<th>${cleanText(h)}</th>`).join('');
@@ -188,7 +188,7 @@
         tbody.innerHTML = rows.map(row => {
           return `<tr>${row.map(cell => {
             const strVal = cleanText(cell);
-            // Jika isi sel adalah link URL (Foto Bukti), tampilkan sebagai link/tombol yang bisa diklik
+            // Render link jika kolom berisi URL (Foto Bukti)
             if (strVal.startsWith('http://') || strVal.startsWith('https://')) {
               return `<td><a href="${strVal}" target="_blank" class="btn-link">🖼️ Lihat Foto</a></td>`;
             }
@@ -196,11 +196,11 @@
           }).join('')}</tr>`;
         }).join('');
       } catch (e) {
-        console.log("Gagal memuat tabel pelengkap: ", e);
+        console.log("Gagal memuat data tabel: ", e);
       }
     }
 
-    // Jalankan scan kartu (POST)
+    // Jalankan simpan data (POST) saat Enter / Scan
     input.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -248,7 +248,7 @@
       }
     });
 
-    // Jalankan penarikan data tabel saat halaman pertama dibuka
+    // Jalankan muat data tabel saat halaman pertama kali dibuka
     muatTabelKehadiran();
   </script>
 </body>
