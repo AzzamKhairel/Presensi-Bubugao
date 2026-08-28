@@ -30,7 +30,7 @@
     
     .container, .table-container { 
       width: 100%;
-      max-width: 540px; 
+      max-width: 480px; 
       background: #ffffff; 
       border-radius: 16px; 
       box-shadow: 0 15px 35px rgba(0,0,0,0.3); 
@@ -83,23 +83,14 @@
     .status-success { background-color: #e8f8f5; color: #117a65; border: 2px solid #a3e4d7; }
     .status-error { background-color: #fadbd8; color: #78281f; border: 2px solid #f5b7b1; }
 
-    /* === CSS TABEL LIVE LOG HISTORY === */
+    /* === CSS TAMBAHAN UNTUK TABEL LIVE PRESENSI === */
     .table-container { padding: 20px; }
     .table-title { color: #004b87; font-size: 15px; font-weight: bold; margin-bottom: 10px; text-align: left; border-left: 4px solid #004b87; padding-left: 8px; }
-    .table-wrapper { overflow-x: auto; width: 100%; max-height: 280px; overflow-y: auto; }
+    .table-wrapper { overflow-x: auto; width: 100%; max-height: 250px; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-    th { background-color: #f1f2f6; color: #57606f; padding: 10px; font-weight: bold; border-bottom: 2px solid #ced6e0; position: sticky; top: 0; white-space: nowrap; }
-    td { padding: 10px; border-bottom: 1px solid #f1f2f6; color: #2c3e50; white-space: nowrap; }
+    th { background-color: #f1f2f6; color: #57606f; padding: 10px; font-weight: bold; border-bottom: 2px solid #ced6e0; position: sticky; top: 0; }
+    td { padding: 10px; border-bottom: 1px solid #f1f2f6; color: #2c3e50; }
     tr:hover { background-color: #f9f9f9; }
-    
-    .btn-link {
-      color: #004b87;
-      text-decoration: none;
-      font-weight: bold;
-    }
-    .btn-link:hover {
-      text-decoration: underline;
-    }
   </style>
 </head>
 <body>
@@ -126,7 +117,7 @@
   </div>
 
   <div class="table-container">
-    <div class="table-title">🔄 Data Real-Time Log History (Kolom A - E)</div>
+    <div class="table-title">🔄 Data Real-Time Kehadiran (Kolom A - C)</div>
     <div class="table-wrapper">
       <table>
         <thead>
@@ -136,7 +127,7 @@
         </thead>
         <tbody id="tableBody">
           <tr>
-            <td colspan="5" style="text-align:center; color:#7f8c8d; padding:20px;">⏳ Mengambil data pelengkap...</td>
+            <td colspan="3" style="text-align:center; color:#7f8c8d; padding:20px;">⏳ Mengambil data pelengkap...</td>
           </tr>
         </tbody>
       </table>
@@ -144,16 +135,15 @@
   </div>
 
   <script>
-    // Link Apps Script Terbaru yang Sudah Terhubung
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw_VZWvXef2nhDtEoipGwygy8PQHNh46lPFwNpRQPzjGmhabtXogUtB00bOxvgID-BF/exec";
-    const GET_DATA_URL = WEB_APP_URL + "?action=laporan";
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2PBgvgwQ21LuIoOpx8VQcEi6GsycKi2JCvx0CBIDwqRqJK80xuY5eq_sdoAjWqDLk2Q/exec";
+    const GET_DATA_URL = WEB_APP_URL + "?action=presensi";
 
     const input = document.getElementById('barcodeInput');
     const statusBox = document.getElementById('statusBox');
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('captureCanvas');
 
-    // Aktifkan Kamera Web
+    // Aktifkan Kamera
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       .then(stream => { video.srcObject = stream; })
       .catch(err => {
@@ -164,20 +154,17 @@
     document.addEventListener('click', () => input.focus());
     input.addEventListener('blur', () => setTimeout(() => input.focus(), 10));
 
-    // Ambil Data Log History (GET)
+    // Ambil Data Pendukung Kehadiran (GET)
     async function muatTabelKehadiran() {
       try {
         const response = await fetch(GET_DATA_URL);
         const data = await response.json();
-        if (data.error || !Array.isArray(data)) return;
+        if (data.error) return;
         
         const headers = data[0];
         const rows = data.slice(1);
         
-        // Menghapus tanda petik tunggal (') di awal jika ada
-        const cleanText = (val) => String(val || '').replace(/^'/, '');
-        
-        document.getElementById('tableHeader').innerHTML = headers.map(h => `<th>${cleanText(h)}</th>`).join('');
+        document.getElementById('tableHeader').innerHTML = headers.map(h => `<th>${h}</th>`).join('');
         
         const tbody = document.getElementById('tableBody');
         if (rows.length === 0) {
@@ -186,21 +173,14 @@
         }
         
         tbody.innerHTML = rows.map(row => {
-          return `<tr>${row.map(cell => {
-            const strVal = cleanText(cell);
-            // Render link jika kolom berisi URL (Foto Bukti)
-            if (strVal.startsWith('http://') || strVal.startsWith('https://')) {
-              return `<td><a href="${strVal}" target="_blank" class="btn-link">🖼️ Lihat Foto</a></td>`;
-            }
-            return `<td>${strVal}</td>`;
-          }).join('')}</tr>`;
+          return `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
         }).join('');
       } catch (e) {
-        console.log("Gagal memuat data tabel: ", e);
+        console.log("Gagal memuat tabel pelengkap: ", e);
       }
     }
 
-    // Jalankan simpan data (POST) saat Enter / Scan
+    // Jalankan scan kartu (POST)
     input.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -231,7 +211,7 @@
           statusBox.className = 'status-success';
           statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
           
-          // Refresh tabel otomatis begitu scan berhasil
+          // 💡 FITUR REALTIME: Begitu sukses absen, tabel di bawah langsung auto-refresh menarik data terbaru
           muatTabelKehadiran();
 
           setTimeout(() => {
@@ -248,7 +228,7 @@
       }
     });
 
-    // Jalankan muat data tabel saat halaman pertama kali dibuka
+    // Jalankan penarikan data tabel saat halaman pertama dibuka
     muatTabelKehadiran();
   </script>
 </body>
