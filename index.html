@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Presensi Bubugao x BTN</title>
   <style>
@@ -77,13 +78,13 @@
       margin-top: 20px; padding: 20px 15px; border-radius: 12px; 
       font-size: 20px; font-weight: bold; min-height: 80px;
       display: flex; align-items: center; justify-content: center;
+      text-align: center;
     }
     .status-ready { background-color: #f1f2f6; color: #57606f; border: 2px solid #ced6e0; }
     .status-loading { background-color: #fef9e7; color: #d4ac0d; border: 2px solid #f9e79f; }
     .status-success { background-color: #e8f8f5; color: #117a65; border: 2px solid #a3e4d7; }
     .status-error { background-color: #fadbd8; color: #78281f; border: 2px solid #f5b7b1; }
 
-    /* === CSS TAMBAHAN UNTUK TABEL LIVE PRESENSI === */
     .table-container { padding: 20px; }
     .table-title { color: #004b87; font-size: 15px; font-weight: bold; margin-bottom: 10px; text-align: left; border-left: 4px solid #004b87; padding-left: 8px; }
     .table-wrapper { overflow-x: auto; width: 100%; max-height: 250px; overflow-y: auto; }
@@ -117,7 +118,7 @@
   </div>
 
   <div class="table-container">
-    <div class="table-title">🔄 Data Real-Time Kehadiran (Kolom A - C)</div>
+    <div class="table-title">🔄 Data Real-Time Kehadiran</div>
     <div class="table-wrapper">
       <table>
         <thead>
@@ -127,7 +128,7 @@
         </thead>
         <tbody id="tableBody">
           <tr>
-            <td colspan="3" style="text-align:center; color:#7f8c8d; padding:20px;">⏳ Mengambil data pelengkap...</td>
+            <td colspan="3" style="text-align:center; color:#7f8c8d; padding:20px;">⏳ Mengambil data...</td>
           </tr>
         </tbody>
       </table>
@@ -135,7 +136,7 @@
   </div>
 
   <script>
-    // Link GAS Terbaru
+    // URL Web App Google Apps Script
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyAPmXH45e3XaZe5BVcMilQXgyUlF9ByKw8FjMj6NIFV3vGv0xJsSd2QLmdKW3fpQT2g/exec";
     const GET_DATA_URL = WEB_APP_URL + "?action=presensi";
 
@@ -144,18 +145,22 @@
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('captureCanvas');
 
-    // Aktifkan Kamera
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      .then(stream => { video.srcObject = stream; })
-      .catch(err => {
-        statusBox.className = 'status-error';
-        statusBox.innerHTML = '<span>⚠️ Gagal Akses Kamera: ' + err.message + '</span>';
-      });
+    // Inisialisasi Kamera
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(stream => { video.srcObject = stream; })
+        .catch(err => {
+          console.warn("Kamera tidak dapat diakses: ", err);
+          statusBox.className = 'status-ready';
+          statusBox.innerHTML = '<span>⚠️ Mode Scan Tanpa Foto (Kamera Nonaktif)</span>';
+        });
+    }
 
+    // Menjaga fokus input tetap aktif untuk Scanner Barcode
     document.addEventListener('click', () => input.focus());
-    input.addEventListener('blur', () => setTimeout(() => input.focus(), 10));
+    input.addEventListener('blur', () => setTimeout(() => input.focus(), 50));
 
-    // Ambil Data Pendukung Kehadiran (GET)
+    // Ambil Data Tabel dari Google Sheets (GET)
     async function muatTabelKehadiran() {
       try {
         const response = await fetch(GET_DATA_URL);
@@ -168,7 +173,7 @@
         document.getElementById('tableHeader').innerHTML = headers.map(h => `<th>${h}</th>`).join('');
         
         const tbody = document.getElementById('tableBody');
-        if (rows.length === 0) {
+        if (!rows || rows.length === 0) {
           tbody.innerHTML = `<tr><td colspan="${headers.length}" style="text-align:center; color:#aaa; padding:15px;">Belum ada data presensi.</td></tr>`;
           return;
         }
@@ -177,11 +182,11 @@
           return `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
         }).join('');
       } catch (e) {
-        console.log("Gagal memuat tabel pelengkap: ", e);
+        console.error("Gagal memuat data tabel:", e);
       }
     }
 
-    // Jalankan scan kartu (POST)
+    // Proses Kirim Data Scan ke Google Sheets (POST)
     input.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -189,38 +194,45 @@
         if (barcodeValue === "") return;
 
         statusBox.className = 'status-loading';
-        statusBox.innerHTML = '<span>⏳ Memproses & Mengambil Foto...</span>';
+        statusBox.innerHTML = '<span>⏳ Memproses & Mengirim Data...</span>';
 
+        // Pengambilan Tangkapan Layar dari Webcam
         let photoDataUrl = "";
         try {
-          const context = canvas.getContext('2d');
-          canvas.width = video.videoWidth || 640;
-          canvas.height = video.videoHeight || 480;
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          photoDataUrl = canvas.toDataURL('image/jpeg', 0.5);
-        } catch (err) { console.error(err); }
+          if (video.srcObject) {
+            const context = canvas.getContext('2d');
+            canvas.width = 480; 
+            canvas.height = 360;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            photoDataUrl = canvas.toDataURL('image/jpeg', 0.4);
+          }
+        } catch (err) { 
+          console.error("Gagal mengambil foto:", err); 
+        }
 
         input.value = '';
+
+        // Payload dikirim sebagai String JSON mentah menggunakan mode no-cors
+        const payloadData = JSON.stringify({ barcode: barcodeValue, image: photoDataUrl });
 
         fetch(WEB_APP_URL, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ barcode: barcodeValue, image: photoDataUrl })
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: payloadData
         })
         .then(() => {
           statusBox.className = 'status-success';
           statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
           
-          // Delay 1 detik untuk refresh tabel otomatis
           setTimeout(() => {
             muatTabelKehadiran();
-          }, 1000);
+          }, 1200);
 
           setTimeout(() => {
             statusBox.className = 'status-ready';
             statusBox.innerHTML = '<span>📷 Kamera Siap, Silakan Scan...</span>';
-          }, 2000);
+          }, 2500);
           input.focus();
         })
         .catch(error => {
@@ -231,7 +243,7 @@
       }
     });
 
-    // Jalankan penarikan data tabel saat halaman pertama dibuka
+    // Jalankan pertama kali saat aplikasi dibuka
     muatTabelKehadiran();
   </script>
 </body>
