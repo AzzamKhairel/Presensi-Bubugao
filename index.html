@@ -135,7 +135,7 @@
   </div>
 
   <script>
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx2PBgvgwQ21LuIoOpx8VQcEi6GsycKi2JCvx0CBIDwqRqJK80xuY5eq_sdoAjWqDLk2Q/exec";
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzFI7AprZemubx9TCZWNdg-24t2d92gc8JMNNPpR414pw2861FKfQ639M0n6G5iBgRdkQ/exec";
     const GET_DATA_URL = WEB_APP_URL + "?action=presensi";
 
     const input = document.getElementById('barcodeInput');
@@ -211,8 +211,11 @@
           statusBox.className = 'status-success';
           statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
           
-          // 💡 FITUR REALTIME: Begitu sukses absen, tabel di bawah langsung auto-refresh menarik data terbaru
-          muatTabelKehadiran();
+          // PEMBERSIHAN BUG: Beri penundaan 1 detik agar Google Apps Script/Spreadsheet
+          // selesai menulis baris baru sebelum tabel di-refresh secara otomatis
+          setTimeout(() => {
+            muatTabelKehadiran();
+          }, 1000);
 
           setTimeout(() => {
             statusBox.className = 'status-ready';
