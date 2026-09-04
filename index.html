@@ -135,7 +135,8 @@
   </div>
 
   <script>
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzFI7AprZemubx9TCZWNdg-24t2d92gc8JMNNPpR414pw2861FKfQ639M0n6G5iBgRdkQ/exec";
+    // Link GAS Terbaru
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyAPmXH45e3XaZe5BVcMilQXgyUlF9ByKw8FjMj6NIFV3vGv0xJsSd2QLmdKW3fpQT2g/exec";
     const GET_DATA_URL = WEB_APP_URL + "?action=presensi";
 
     const input = document.getElementById('barcodeInput');
@@ -211,8 +212,7 @@
           statusBox.className = 'status-success';
           statusBox.innerHTML = '<span>✅ BERHASIL DISIMPAN!<br><small>ID: ' + barcodeValue + '</small></span>';
           
-          // PEMBERSIHAN BUG: Beri penundaan 1 detik agar Google Apps Script/Spreadsheet
-          // selesai menulis baris baru sebelum tabel di-refresh secara otomatis
+          // Delay 1 detik untuk refresh tabel otomatis
           setTimeout(() => {
             muatTabelKehadiran();
           }, 1000);
